@@ -4,36 +4,34 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bilingual Kids Word Master</title>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <style>
         :root { --primary: #4db8ff; --secondary: #ff6b6b; --accent: #ffd93d; --success: #4caf50; --wrong: #f43f5e; }
         body { font-family: 'Comic Sans MS', cursive, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background-color: #f0f9ff; }
         .app-container { background: white; padding: 2rem; border-radius: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); text-align: center; width: 400px; border: 8px solid var(--accent); min-height: 580px; display: flex; flex-direction: column; }
         
         .hidden { display: none !important; }
+        
+        /* 2. ADDED: Upload Styling */
+        .upload-box { background: #e0f2fe; padding: 15px; border-radius: 15px; border: 2px dashed #0369a1; margin-bottom: 20px; }
+        .upload-box input { margin-top: 10px; width: 100%; }
+
         .menu-card { background: #fff; border: 4px solid #f1f5f9; padding: 20px; border-radius: 20px; cursor: pointer; transition: 0.3s; margin-bottom: 15px; }
         .menu-card:hover { transform: scale(1.02); border-color: var(--primary); }
-
         .stats { display: flex; justify-content: space-between; margin-bottom: 20px; align-items: center; }
         .progress-bg { background: #eee; border-radius: 10px; height: 12px; width: 60%; overflow: hidden; }
         #progress-bar { background: var(--success); height: 100%; width: 0%; transition: 0.5s; }
-        
         #word-image { width: 180px; height: 180px; object-fit: contain; margin: 5px auto; display: block; border-radius: 15px; }
-        
-        /* Text Styling */
         .word-display { margin: 10px 0; }
         #word-text-en { font-size: 42px; margin: 0; color: #333; font-weight: bold; }
         #word-text-kn { font-size: 32px; margin: 0; color: #0369a1; font-weight: normal; }
-        
         .mic-indicator { font-size: 40px; margin: 10px 0; color: #ccc; transition: 0.3s; }
         .mic-active { color: var(--secondary); animation: pulse 1s infinite; }
-        
         .btn-audio { background: var(--primary); color: white; border: none; padding: 12px; border-radius: 12px; font-weight: bold; cursor: pointer; border-bottom: 4px solid #008ae6; margin-bottom: 10px; }
         .btn-home { background: #64748b; color:white; border:none; padding: 12px; border-radius:12px; margin-top: auto; cursor:pointer; font-weight: bold;}
-        
         #feedback { margin-top: 10px; font-weight: bold; min-height: 4em; font-size: 1.1rem; padding: 0 10px; }
         .error-text { color: var(--wrong); }
         .success-text { color: var(--success); }
-
         @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.2); opacity: 0.7; } 100% { transform: scale(1); opacity: 1; } }
     </style>
 </head>
@@ -42,11 +40,17 @@
 <div class="app-container">
     <div id="menu-screen">
         <h1 style="color: #0369a1;">ನಮಸ್ಕಾರ!</h1>
-        <div class="menu-card" onclick="startTask('listen')">
+        
+        <div class="upload-box">
+            <strong>ಹಂತ 1: Excel ಫೈಲ್ ಆಯ್ಕೆಮಾಡಿ</strong><br>
+            <input type="file" id="excel-input" accept=".xlsx, .xls">
+        </div>
+
+        <div class="menu-card" onclick="checkAndStart('listen')">
             <h3>🎧 Listen And Speak</h3>
             <p>ಕೇಳಿ ಮತ್ತು ಹೇಳಿ</p>
         </div>
-        <div class="menu-card" onclick="startTask('read')">
+        <div class="menu-card" onclick="checkAndStart('read')">
             <h3>👁️ Read and Speak</h3>
             <p>ಓದಿ ಮತ್ತು ಹೇಳಿ</p>
         </div>
@@ -57,17 +61,13 @@
             <span>⭐ <span id="star-count">0</span></span>
             <div class="progress-bg"><div id="progress-bar"></div></div>
         </div>
-
         <img id="word-image" src="" alt="word">
-        
         <div class="word-display">
-            <h1 id="word-text-en">APPLE</h1>
-            <h2 id="word-text-kn">ಸೇಬು</h2>
+            <h1 id="word-text-en">WORD</h1>
+            <h2 id="word-text-kn">ಪದ</h2>
         </div>
-        
         <div id="mic-icon" class="mic-indicator">🎤</div>
         <div id="feedback">ಸಿದ್ಧರಾಗಿ...</div>
-        
         <button id="audio-btn" class="btn-audio" onclick="playAudioManual()">🔊 Listen Again</button>
         <button class="btn-home" onclick="location.reload()">🏠 ಮುಖ್ಯ ಪುಟಕ್ಕೆ ಹೋಗಿ (Home)</button>
     </div>
@@ -80,13 +80,7 @@
 </div>
 
 <script>
-    const wordList = [
-        { word: "apple", kn: "ಸೇಬು", img: "https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=400" },
-        { word: "banana", kn: "ಬಾಳೆಹಣ್ಣು", img: "https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=400" },
-        { word: "cat", kn: "ಬೆಕ್ಕು", img: "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=400" },
-        { word: "dog", kn: "ನಾಯಿ", img: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400" }
-    ];
-
+    let wordList = []; // List starts empty
     let currentMode = ''; 
     let currentIndex = 0;
     let stars = 0;
@@ -94,6 +88,36 @@
 
     const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
     recognition.lang = 'en-US';
+
+    // 4. ADDED: Logic to handle Excel Reading
+    document.getElementById('excel-input').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            const data = new Uint8Array(event.target.result);
+            const workbook = XLSX.read(data, {type: 'array'});
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(sheet, {header: 1});
+
+            // Converting rows to our format (skipping the header row)
+            wordList = rows.slice(1).map(row => ({
+                word: String(row[0]).toLowerCase().trim(),
+                kn: row[1],
+                img: "images/" + row[2] // Assumes images are in your images folder
+            })).filter(item => item.word !== "undefined");
+
+            alert("Excel ಫೈಲ್ ಲೋಡ್ ಆಗಿದೆ! (Excel loaded successfully!)");
+        };
+        reader.readAsArrayBuffer(file);
+    });
+
+    function checkAndStart(mode) {
+        if(wordList.length === 0) {
+            alert("ದಯವಿಟ್ಟು ಮೊದಲು Excel ಫೈಲ್ ಆಯ್ಕೆಮಾಡಿ! (Please select Excel first!)");
+            return;
+        }
+        startTask(mode);
+    }
 
     function startTask(mode) {
         currentMode = mode;
@@ -109,7 +133,6 @@
 
     function processStep() {
         clearTimeout(silentTimer);
-        
         if (currentMode === 'listen') {
             const msg = new SpeechSynthesisUtterance(wordList[currentIndex].word);
             msg.onend = () => startAutoListening();
@@ -124,12 +147,11 @@
         try {
             recognition.start();
             document.getElementById('mic-icon').classList.add('mic-active');
-            
             clearTimeout(silentTimer);
             silentTimer = setTimeout(() => {
                 recognition.stop();
                 handleSilence();
-            }, 5000); // 5 seconds to give more time
+            }, 5000);
         } catch(e) {}
     }
 
@@ -157,9 +179,7 @@
         }
     };
 
-    recognition.onerror = () => {
-        document.getElementById('mic-icon').classList.remove('mic-active');
-    };
+    recognition.onerror = () => { document.getElementById('mic-icon').classList.remove('mic-active'); };
 
     function updateUI() {
         if (currentIndex < wordList.length) {
@@ -169,9 +189,7 @@
             document.getElementById('word-image').src = data.img;
             document.getElementById('word-text-en').innerText = data.word.toUpperCase();
             document.getElementById('word-text-kn').innerText = data.kn;
-
             document.getElementById('audio-btn').className = (currentMode === 'listen') ? 'btn-audio' : 'hidden';
-
             setTimeout(processStep, 1000);
         } else {
             showFinalScore();
@@ -184,6 +202,5 @@
         document.getElementById('final-stars').innerText = stars;
     }
 </script>
-
 </body>
 </html>
